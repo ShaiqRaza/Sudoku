@@ -5,10 +5,44 @@ jmp main
 mistake: db 'Mistakes: 0/3', 0
 timer: db '00:00', 0
 score: db 'Score: 1000', 0
-numbers: db 1, 2, 3, 4, 5, 6, 7, 0, 9, 1, 2, 3, 0, 5, 6, 7, 8, 9, 1, 0, 3, 4, 5, 6, 7, 8, 9, 1, 2, 0, 4, 5, 6, 7, 8, 0, 1, 0, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 0, 5, 6, 7, 8, 9, 0, 2, 3, 4, 5, 6, 0, 8, 9, 1, 2, 3, 0, 5, 6, 7, 8, 9, 1, 2, 0, 4, 5, 0, 7, 8, 9
+
+solvedNumbers: db 6, 7, 2, 1, 9, 5, 3, 4, 8, 5, 3, 4, 6, 7, 8, 9, 1, 2, 1, 9, 8, 3, 4, 2, 5, 6, 7, 8, 5, 9, 7, 6, 1, 4, 2, 3, 3, 4, 5, 2, 8, 6, 1, 7, 9, 4, 2, 6, 8, 5, 3, 7, 9, 1, 7, 1, 3, 9, 2, 4, 8, 5, 6, 9, 6, 1, 5, 3, 7, 2, 8, 4, 2, 8, 7, 4, 1, 9, 6, 3, 5
+numbers: db 5, 3, 0, 0, 7, 0, 0, 0, 0, 6, 0, 0, 1, 9, 5, 0, 0, 0, 0, 9, 8, 0, 0, 0, 0, 6, 0, 8, 0, 0, 0, 6, 0, 0, 0, 3, 4, 0, 0, 8, 0, 3, 0, 0, 1, 7, 0, 0, 0, 2, 0, 0, 0, 6, 0, 6, 0, 0, 0, 0, 2, 8, 0, 0, 0, 0, 4, 1, 9, 0, 0, 5, 0, 0, 0, 0, 8, 0, 0, 7, 9
 numbersLength: dw 81
 
-;clear screen function
+; subroutine to scroll up the screen 
+; take the number of lines to scroll as parameter 
+scrollup:     push bp 
+              mov  bp,sp 
+              push ax 
+              push cx 
+              push si   
+              push di 
+              push es 
+              push ds 
+ 
+              mov  ax, 80             ; load chars per row in ax 
+              mul  byte [bp+4]        ; calculate source position 
+              mov  si, ax             ; load source position in si 
+              shl  si, 1              ; convert to byte offset 
+              mov  cx, 4000           ; number of screen locations 
+              sub  cx, ax             ; count of words to move 
+              mov  ax, 0xb800 
+              mov  es, ax             ; point es to video base 
+              mov  ds, ax             ; point ds to video base 
+              mov di, 800             ; point di to top left column 
+              cld                     ; set auto increment mode 
+              rep  movsw              ; scroll up 
+ 
+              pop  ds 
+              pop  es 
+              pop  di 
+              pop  si 
+              pop  cx 
+              pop  ax 
+              pop  bp 
+              ret  2 
+
 clrscr:
     push di
     push es
@@ -453,88 +487,88 @@ printBoard:
     mov ax, 2
     mul byte[bp+4]
 
-printRow:
-    cmp ch, 0
-    jnz notEnd
-        pop si
-        pop cx
-        pop bx
-        pop ax
-        pop es
-        pop bp
-        ret
-        notEnd:
-            mov cl, 9
-            mov si, ax
-            printColumn:
-                cmp ch, 9
-                jz firstRow
-                cmp ch, 1
-                jz lastRow
+    printRow:
+        cmp ch, 0
+        jnz notEnd
+            pop si
+            pop cx
+            pop bx
+            pop ax
+            pop es
+            pop bp
+            ret
+            notEnd:
+                mov cl, 9
+                mov si, ax
+                printColumn:
+                    cmp ch, 9
+                    jz firstRow
+                    cmp ch, 1
+                    jz lastRow
 
-                middelRow:
-                    cmp cl, 9
-                    jz callC4
-                    
-                    cmp cl, 1
-                    jz callC6
+                    middelRow:
+                        cmp cl, 9
+                        jz callC4
+                        
+                        cmp cl, 1
+                        jz callC6
 
-                    jmp callC5
+                        jmp callC5
 
-                firstRow:
-                    cmp cl, 9
-                    jz callC1
-                    
-                    cmp cl, 1
-                    jz callC3
+                    firstRow:
+                        cmp cl, 9
+                        jz callC1
+                        
+                        cmp cl, 1
+                        jz callC3
 
-                    jmp callC2
+                        jmp callC2
 
-                lastRow:
-                    cmp cl, 9
-                    jz callC7
-                    
-                    cmp cl, 1
-                    jz callC9
+                    lastRow:
+                        cmp cl, 9
+                        jz callC7
+                        
+                        cmp cl, 1
+                        jz callC9
 
-                    jmp callC8
+                        jmp callC8
 
-                callC1:
-                    call c1
-                    sub cl, 1
-                    jmp printColumn
-                callC2:
-                    call c2
-                    sub cl, 1
-                    jmp printColumn
-                callC3:
-                    call c3
-                    sub ch, 1
-                    jmp printRow
-                callC4:
-                    call c4
-                    sub cl, 1
-                    jmp printColumn
-                callC5:
-                    call c5
-                    sub cl, 1
-                    jmp printColumn
-                callC6:
-                    call c6
-                    sub ch, 1
-                    jmp printRow
-                callC7:
-                    call c7
-                    sub cl, 1
-                    jmp printColumn
-                callC8:
-                    call c8
-                    sub cl, 1
-                    jmp printColumn
-                callC9:
-                    call c9
-                    sub ch, 1
-                    jmp printRow
+                    callC1:
+                        call c1
+                        sub cl, 1
+                        jmp printColumn
+                    callC2:
+                        call c2
+                        sub cl, 1
+                        jmp printColumn
+                    callC3:
+                        call c3
+                        sub ch, 1
+                        jmp printRow
+                    callC4:
+                        call c4
+                        sub cl, 1
+                        jmp printColumn
+                    callC5:
+                        call c5
+                        sub cl, 1
+                        jmp printColumn
+                    callC6:
+                        call c6
+                        sub ch, 1
+                        jmp printRow
+                    callC7:
+                        call c7
+                        sub cl, 1
+                        jmp printColumn
+                    callC8:
+                        call c8
+                        sub cl, 1
+                        jmp printColumn
+                    callC9:
+                        call c9
+                        sub ch, 1
+                        jmp printRow
 
 printString:
     push bp
@@ -554,7 +588,6 @@ printString:
     sub ax, cx
     dec ax
     jz exit
-
     mov cx, ax
     mov ax, 0xb800
     mov es, ax
@@ -769,6 +802,10 @@ main:
     mov cx, 5
     push cx
     call printNotes
+
+    mov ax, 20
+    push ax
+    call scrollup
 
     mov ax, 4c00h
     int 21h
