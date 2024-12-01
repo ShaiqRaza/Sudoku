@@ -9,39 +9,117 @@ score: db 'Score: 1000', 0
 solvedNumbers: db 6, 7, 2, 1, 9, 5, 3, 4, 8, 5, 3, 4, 6, 7, 8, 9, 1, 2, 1, 9, 8, 3, 4, 2, 5, 6, 7, 8, 5, 9, 7, 6, 1, 4, 2, 3, 3, 4, 5, 2, 8, 6, 1, 7, 9, 4, 2, 6, 8, 5, 3, 7, 9, 1, 7, 1, 3, 9, 2, 4, 8, 5, 6, 9, 6, 1, 5, 3, 7, 2, 8, 4, 2, 8, 7, 4, 1, 9, 6, 3, 5
 numbers: db 5, 3, 0, 0, 7, 0, 0, 0, 0, 6, 0, 0, 1, 9, 5, 0, 0, 0, 0, 9, 8, 0, 0, 0, 0, 6, 0, 8, 0, 0, 0, 6, 0, 0, 0, 3, 4, 0, 0, 8, 0, 3, 0, 0, 1, 7, 0, 0, 0, 2, 0, 0, 0, 6, 0, 6, 0, 0, 0, 0, 2, 8, 0, 0, 0, 0, 4, 1, 9, 0, 0, 5, 0, 0, 0, 0, 8, 0, 0, 7, 9
 numbersLength: dw 81
+currentScrollUp: db 0
+currentScrollDown: db 0
+old9hIsr: dw 0, 0
 
 ; subroutine to scroll up the screen 
 ; take the number of lines to scroll as parameter 
-scrollup:     push bp 
-              mov  bp,sp 
-              push ax 
-              push cx 
-              push si   
-              push di 
-              push es 
-              push ds 
- 
-              mov  ax, 80             ; load chars per row in ax 
-              mul  byte [bp+4]        ; calculate source position 
-              mov  si, ax             ; load source position in si 
-              shl  si, 1              ; convert to byte offset 
-              mov  cx, 4000           ; number of screen locations 
-              sub  cx, ax             ; count of words to move 
-              mov  ax, 0xb800 
-              mov  es, ax             ; point es to video base 
-              mov  ds, ax             ; point ds to video base 
-              mov di, 800             ; point di to top left column 
-              cld                     ; set auto increment mode 
-              rep  movsw              ; scroll up 
- 
-              pop  ds 
-              pop  es 
-              pop  di 
-              pop  si 
-              pop  cx 
-              pop  ax 
-              pop  bp 
-              ret  2 
+scrollup:     
+    push bp 
+    mov  bp, sp 
+    push ax 
+    push cx 
+    push dx
+    push si   
+    push di 
+    push es 
+    push ds 
+
+    mov si, 800             ; Start of scrollable section (row 5, byte offset)
+    mov ax, 0xb800
+    mov es, ax
+
+    ; Save lines to wrap (rows that will scroll out)
+    mov cx, 80              ; CX = number of words to save for wrapping
+    storingvalues:
+        push word [es:si]   ; Save word to stack
+        add si, 2           ; Move to next word (2 bytes per word)
+        loop storingvalues
+
+    ; Scroll up rows 6-25 (move memory up)
+    mov si, 960
+    mov di, 800             ; Destination: row 5 (800 = 5 * 160)
+    mov cx, 3120           ; Total bytes in rows 5 to 25 (160 bytes * 20 rows)
+    mov ax, 0xb800          ; Video memory segment
+    mov es, ax              ; Set ES to video memory
+    mov ds, ax              ; Set DS to video memory
+    cld                     ; Set auto-increment mode
+    rep movsw               ; Move remaining rows up
+
+    ; Restore wrapped lines at the bottom
+    mov cx, 80              ; CX = number of words to restore
+    mov di, 7198            ; Start of bottom of scrollable section (row 25, byte offset)
+    storedPushedlocations:
+        pop dx              ; Retrieve saved word
+        mov [es:di], dx     ; Write word to new location
+        sub di, 2           ; Move backward
+        loop storedPushedlocations
+
+    ; Restore registers
+    pop ds 
+    pop es 
+    pop di 
+    pop si 
+    pop dx
+    pop cx 
+    pop ax 
+    pop bp 
+    ret 2
+
+; subroutine to scrolls down the screen 
+; take the number of lines to scroll as parameter 
+scrolldown: 
+    push bp 
+    mov  bp, sp 
+    push ax 
+    push cx 
+    push dx
+    push si   
+    push di 
+    push es 
+    push ds 
+
+    mov si, 7040             ; Start of scrollable section (row 5, byte offset)
+    mov ax, 0xb800
+    mov es, ax
+
+    ; Save lines to wrap (rows that will scroll out)
+    mov cx, 80              ; CX = number of words to save for wrapping
+    storinglastrowvalues:
+        push word [es:si]   ; Save word to stack
+        add si, 2           ; Move to next word (2 bytes per word)
+        loop storinglastrowvalues
+
+    ; Scroll up rows 6-25 (move memory up)
+    mov si, 7038
+    mov di, 7198             ; Destination: row 5 (800 = 5 * 160)
+    mov cx, 3120           ; Total bytes in rows 5 to 25 (160 bytes * 20 rows)
+    mov ax, 0xb800          ; Video memory segment
+    mov es, ax              ; Set ES to video memory
+    mov ds, ax              ; Set DS to video memory
+    std                     ; Set auto-decrement mode
+    rep movsw               ; Move remaining rows up
+
+    ; Restore wrapped lines at the bottom
+    mov cx, 80              ; CX = number of words to restore
+    mov di, 958            ; Start of bottom of scrollable section (row 25, byte offset)
+    storingPushedlocations:
+        pop dx              ; Retrieve saved word
+        mov [es:di], dx     ; Write word to new location
+        sub di, 2           
+        loop storingPushedlocations
+
+    ; Restore registers
+    pop ds 
+    pop es 
+    pop di 
+    pop si 
+    pop dx
+    pop cx 
+    pop ax 
+    pop bp 
+    ret 2
 
 clrscr:
     push di
@@ -53,7 +131,7 @@ clrscr:
     nextloc:
         mov word [es:di], 0x0720
         add di, 2
-        cmp di, 6000
+        cmp di, 7200
         jne nextloc
         pop ax
         pop es
@@ -760,6 +838,7 @@ printNotes:
     ret 4
 
 main:
+
     call clrscr
 
     mov cx, 5;x
@@ -803,9 +882,27 @@ main:
     push cx
     call printNotes
 
-    mov ax, 20
-    push ax
-    call scrollup
+    game:
+        mov ah, 0
+        int 0x16
+        cmp al, 0x73
+        jne skipscrollup
+        cmp byte[currentScrollUp], 20
+        je game
+        call scrollup
+        inc byte [currentScrollUp]
+        skipscrollup:
+        cmp al, 0x77
+        jne skipscrolldown
+        cmp byte[currentScrollUp], 0
+        je game
+        call scrolldown
+        dec byte [currentScrollUp]
+        skipscrolldown:
+        cmp al, 27
+        je terminategame
+    jmp game
 
-    mov ax, 4c00h
-    int 21h
+    terminategame:
+        mov ax, 4c00h
+        int 21h
