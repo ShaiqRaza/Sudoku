@@ -1,6 +1,6 @@
 [org 0x100]
 
-jmp main
+jmp game
 
 mistake: db 'Mistakes: 0/3', 0
 timer: db '00:00', 0
@@ -10,11 +10,13 @@ solvedNumbers: db 6, 7, 2, 1, 9, 5, 3, 4, 8, 5, 3, 4, 6, 7, 8, 9, 1, 2, 1, 9, 8,
 numbers: db 5, 3, 0, 0, 7, 0, 0, 0, 0, 6, 0, 0, 1, 9, 5, 0, 0, 0, 0, 9, 8, 0, 0, 0, 0, 6, 0, 8, 0, 0, 0, 6, 0, 0, 0, 3, 4, 0, 0, 8, 0, 3, 0, 0, 1, 7, 0, 0, 0, 2, 0, 0, 0, 6, 0, 6, 0, 0, 0, 0, 2, 8, 0, 0, 0, 0, 4, 1, 9, 0, 0, 5, 0, 0, 0, 0, 8, 0, 0, 7, 9
 numbersLength: dw 81
 currentScrollUp: db 0
-currentScrollDown: db 0
-old9hIsr: dw 0, 0
 
-; subroutine to scroll up the screen 
-; take the number of lines to scroll as parameter 
+how1: db 'Scroll up: s',0
+how2: db 'Scroll down: w',0
+how3: db 'First Number: row',0
+how4: db 'Second Number: column',0
+how5: db 'Third Number: value',0
+
 scrollup:     
     push bp 
     mov  bp, sp 
@@ -67,8 +69,6 @@ scrollup:
     pop bp 
     ret 2
 
-; subroutine to scrolls down the screen 
-; take the number of lines to scroll as parameter 
 scrolldown: 
     push bp 
     mov  bp, sp 
@@ -574,7 +574,7 @@ printBoard:
             pop ax
             pop es
             pop bp
-            ret
+            ret 4
             notEnd:
                 mov cl, 9
                 mov si, ax
@@ -745,102 +745,10 @@ printNumbers:
         pop bp
         ret 8
 
-;for one cell only
-placeNotes:
-    push bp
-    mov bp, sp
-    push es
-    push bx
-    push ax
-    push dx
-    push di
+display:
     push cx
 
-    sub word[bp+6], 160 ; row
-    sub word[bp+4], 2 ; col
-
-    mov bx, [bp+6]
-    mov di, [bp+4]
-    mov ah, 0x67
-    mov al, 0x31
-    mov dx, 0
-    outer:
-        mov cx, 3
-        inner:
-            mov [es:bx+di], ax
-            add al, 1
-            add di, 2
-            dec cx
-            cmp cx, 0
-            jnz inner
-        sub di, 6
-        add bx, 160
-        add dx, 1
-        cmp dx, 3
-        jb outer
-
-    pop cx
-    pop di
-    pop dx
-    pop ax
-    pop bx
-    pop es
-    pop bp
-    ret 4
-
-printNotes:
-    push bp
-    mov bp, sp
-    push es
-    push ax
-    push si
-    push di
-    push bx
-    push dx
-
-    mov si, [bp+6]; x
-    shl si, 1
-    add si, 4
-    mov cx, 81; total cells
-    mov ax, 160
-    mul byte [bp+4]; y
-    add ax, 320
-    mov bx, ax
-    mov ax, 0xb800
-    mov es, ax
-    mov ah, 0x60
-    mov dx, si
-    add dx, 72
-
-    nextCellLocation:
-        cmp word[es:bx+si], 0x6020
-        jnz ignoreNotes
-        ; mov word[es:bx+si], 0x0720
-        push bx
-        push si
-        call placeNotes
-        ignoreNotes:
-            add si, 8
-            cmp si, dx
-            jnz sameRow
-            sub si, 72
-            add bx, 640
-            sameRow:
-                loop nextCellLocation
-
-    pop dx
-    pop bx
-    pop di
-    pop si
-    pop ax
-    pop es
-    pop bp
-    ret 4
-
-main:
-
     call clrscr
-
     mov cx, 5;x
     push cx
     mov cx, 3;y
@@ -875,34 +783,35 @@ main:
     push word[numbersLength]
     push numbers
     call printNumbers
-    
-    mov cx, 22
-    push cx
-    mov cx, 5
-    push cx
-    call printNotes
 
-    game:
+    pop cx
+    ret
+
+game:
+
+    call display
+
+    start:
         mov ah, 0
         int 0x16
         cmp al, 0x73
         jne skipscrollup
         cmp byte[currentScrollUp], 20
-        je game
+        je start
         call scrollup
         inc byte [currentScrollUp]
         skipscrollup:
         cmp al, 0x77
         jne skipscrolldown
         cmp byte[currentScrollUp], 0
-        je game
+        je start
         call scrolldown
         dec byte [currentScrollUp]
         skipscrolldown:
-        cmp al, 27
-        je terminategame
-    jmp game
+        cmp al, 0x1B
+        je end
+    jmp start
 
-    terminategame:
+    end:
         mov ax, 4c00h
         int 21h
