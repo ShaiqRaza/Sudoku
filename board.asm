@@ -17,6 +17,15 @@ how3: db 'First Number: row',0
 how4: db 'Second Number: column',0
 how5: db 'Third Number: value',0
 
+line:db '===========================================',0
+m1:db 'Welcome to Sudoku!',0
+m2:db 'Get ready to solve the puzzle!',0
+m3:db  'For better experience go through the rules:',0
+m4:db   '1. Fill the grid as every row, column and 3x3 box contains the digits 1-9.',0
+m5:db '2. No number can repeat within any row, column or 3x3 box.',0
+m6:db 'Are you ready for the challenge?',0
+m7:db 'Press any key to Start',0
+
 scrollup:     
     push bp 
     mov  bp, sp 
@@ -745,6 +754,39 @@ printNumbers:
         pop bp
         ret 8
 
+printWord:
+    push bp
+    mov bp, sp
+    push ax
+    push cx
+    push di
+    push si
+    push es
+    mov ax, 0xb800
+    mov es, ax
+    mov al, 80
+    mul byte [bp+8]     
+    add ax, word [bp+10]
+    shl ax, 1
+    mov di, ax
+    mov si, word [bp+4]
+    mov ah, byte [bp+6]
+	PrintWordLoop:
+		cmp byte[si],0
+		je Done
+		mov al,[si]
+		inc	si
+		stosw                
+		jmp PrintWordLoop
+		Done:
+		pop es
+		pop si
+		pop di
+		pop cx
+		pop ax
+		pop bp
+		ret 8
+
 display:
     push cx
 
@@ -787,9 +829,82 @@ display:
     pop cx
     ret
 
-game:
+displayStartScreen:
+    push ax
+    call clrscr
+
+    push 18
+	push 1
+	push 0x0F
+	push line
+    call printWord
+
+    push 30
+	push 2
+	push 0x0B
+	push m1
+    call printWord
+
+    push 18
+	push 3
+	push 0x0F
+	push line
+    call printWord
+
+    push 5
+	push 8
+	push 0x0b
+	push m3
+    call printWord
+
+    push 2
+	push 10
+	push 0x0A
+	push m4
+    call printWord
+
+    push 2
+	push 11
+	push 0x0A
+	push m5
+    call printWord
+
+    push 23
+	push 16
+	push 0x0c
+	push m6
+    call printWord
+
+    push 18
+	push 19
+	push 0x0F
+	push line
+	call printWord
+	
+	push 28
+	push 20
+	push 0x8d
+	push m7
+	call printWord
+	
+	
+	push 18
+	push 21
+	push 0x0F
+	push line
+	call printWord
+
+    mov ah, 0
+    int 0x16
 
     call display
+
+    pop ax
+    ret
+
+game:
+
+    call displayStartScreen
 
     start:
         mov ah, 0
