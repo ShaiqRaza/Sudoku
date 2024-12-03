@@ -845,6 +845,7 @@ main:
     push cx
     mov cx, 3;y
     push cx
+
     push mistake
     call printString
 
@@ -855,9 +856,9 @@ main:
     push score
     call printString
 
-    mov cx, 70;x
+    mov cx, 70 ;x
     push cx
-    mov cx, 3;y
+    mov cx, 3 ;y
     push cx
     push timer
     call printString
@@ -891,6 +892,8 @@ main:
         je game
         call scrollup
         inc byte [currentScrollUp]
+        
+
         skipscrollup:
         cmp al, 0x77
         jne skipscrolldown
@@ -902,6 +905,17 @@ main:
         cmp al, 27
         je terminategame
     jmp game
+
+printnum:
+    ; programmable interval timer code
+    ; timer top right 
+    ; start + end screen
+    ; keyboard Inputs
+    ; updation of board + display memory
+
+
+
+
 
     terminategame:
         mov ax, 4c00h
