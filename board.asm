@@ -143,6 +143,7 @@ clrscr:
 
     rep stosw
 
+
     pop ax
     pop es
     pop di
