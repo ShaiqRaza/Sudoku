@@ -26,6 +26,10 @@ m5:db '2. No number can repeat within any row, column or 3x3 box.',0
 m6:db 'Are you ready for the challenge?',0
 m7:db 'Press any key to Start',0
 
+cursorIndex: db 1
+cursorPosition: dw 1328
+oldisr: dw 0, 0
+
 scrollup:     
     push bp 
     mov  bp, sp 
@@ -787,6 +791,21 @@ printWord:
 		pop bp
 		ret 8
 
+printCursor:
+    push es
+    push ax
+    push bx
+
+    mov ax, 0xb800
+    mov es, ax
+    mov bx, [cursorPosition]
+    mov word[es:bx], 0xe05f
+
+    pop bx
+    pop ax
+    pop es
+    ret
+
 display:
     push cx
 
@@ -817,7 +836,7 @@ display:
     mov cx, 22;x-axis
     push cx
     call printBoard
-    
+
     mov cx, 22
     push cx
     mov cx, 5
@@ -825,6 +844,8 @@ display:
     push word[numbersLength]
     push numbers
     call printNumbers
+
+    call printCursor
 
     pop cx
     ret
@@ -902,7 +923,96 @@ displayStartScreen:
     pop ax
     ret
 
+int9hisr:
+	    push ax                 ; push all regs  
+        push bx 
+        push cx 
+        push dx 
+        push si 
+        push di 
+        push bp 
+        push ds 
+        push es 
+        push cs 
+        pop  ds                 ; point ds to our data segment 
+
+	    in al, 0x60
+
+        cmp al, 0x4B       
+        je moveLeft
+        cmp al, 0x48       
+        je moveUp
+        cmp al, 0x50       
+        je moveDown
+        cmp al, 0x4D       
+        je moveRight
+
+        jmp exitFromint9h
+
+        moveUp:
+            cmp byte [cursorIndex], 9
+            jna exitFromint9h
+            sub word[cursorPosition], 160*4
+            sub byte [cursorIndex], 9
+            call display
+            jmp exitFromint9h
+
+        moveDown:
+            cmp byte [cursorIndex], 72
+            ja exitFromint9h
+            add word[cursorPosition], 160*4
+            add byte [cursorIndex], 9
+            call display
+            jmp exitFromint9h
+        
+        moveLeft:
+            mov ah, 0
+            mov al, byte [cursorIndex]
+            mov dh, 9
+            div dh  
+            cmp ah, 1
+            je exitFromint9h
+            sub word[cursorPosition], 8
+            sub byte[cursorIndex], 1
+            call display
+            jmp exitFromint9h
+
+        moveRight:
+            mov ah, 0
+            mov al, byte [cursorIndex]
+            mov dh, 9
+            div dh
+            cmp ah, 0
+            je exitFromint9h
+            add word[cursorPosition], 8
+            add byte [cursorIndex], 1
+            call display
+            jmp exitFromint9h
+
+    exitFromint9h:
+              pop  es 
+              pop  ds 
+              pop  bp 
+              pop  di 
+              pop  si 
+              pop  dx 
+              pop  cx 
+              pop  bx 
+              pop  ax 
+              jmp far [cs:oldisr]   
+
 game:
+
+    xor ax, ax
+    mov es, ax
+    mov ax, [es:9*4]
+    mov [oldisr], ax
+    mov ax, [es:9*4+2]
+    mov [oldisr+2], ax
+    cli
+    mov word [es:9*4], int9hisr
+    mov [es:9*4+2], cs
+    sti
 
     call displayStartScreen
 
