@@ -765,6 +765,7 @@ printWord:
     push di
     push si
     push es
+
     mov ax, 0xb800
     mov es, ax
     mov al, 80
@@ -774,6 +775,7 @@ printWord:
     mov di, ax
     mov si, word [bp+4]
     mov ah, byte [bp+6]
+
 	PrintWordLoop:
 		cmp byte[si],0
 		je Done
@@ -781,6 +783,7 @@ printWord:
 		inc	si
 		stosw                
 		jmp PrintWordLoop
+        
 		Done:
 		pop es
 		pop si
@@ -946,6 +949,6 @@ printnum:
 
 
 
-    terminategame:
-        mov ax, 4c00h
-        int 21h
+terminategame:
+    mov ax, 4c00h
+    int 21h
