@@ -2,12 +2,15 @@
 
 jmp game
 
-mistake: db 'Mistakes: 0/3', 0
+mistake1: db 'Mistakes:', 0
+mistake2: db '/3', 0
+mistakes: dw 0
+
 timer: db '00:00', 0
 score: db 'Score: 1000', 0
 
 solvedNumbers: db 6, 7, 2, 1, 9, 5, 3, 4, 8, 5, 3, 4, 6, 7, 8, 9, 1, 2, 1, 9, 8, 3, 4, 2, 5, 6, 7, 8, 5, 9, 7, 6, 1, 4, 2, 3, 3, 4, 5, 2, 8, 6, 1, 7, 9, 4, 2, 6, 8, 5, 3, 7, 9, 1, 7, 1, 3, 9, 2, 4, 8, 5, 6, 9, 6, 1, 5, 3, 7, 2, 8, 4, 2, 8, 7, 4, 1, 9, 6, 3, 5
-numbers: db 5, 3, 0, 0, 7, 0, 0, 0, 0, 6, 0, 0, 1, 9, 5, 0, 0, 0, 0, 9, 8, 0, 0, 0, 0, 6, 0, 8, 0, 0, 0, 6, 0, 0, 0, 3, 4, 0, 0, 8, 0, 3, 0, 0, 1, 7, 0, 0, 0, 2, 0, 0, 0, 6, 0, 6, 0, 0, 0, 0, 2, 8, 0, 0, 0, 0, 4, 1, 9, 0, 0, 5, 0, 0, 0, 0, 8, 0, 0, 7, 9
+numbers: db 6, 7, 2, 1, 0, 5, 3, 4, 8, 5, 3, 0, 6, 7, 8, 9, 1, 2, 1, 0, 0, 3, 4, 0, 5, 6, 0, 8, 5, 9, 7, 6, 1, 4, 0, 3, 3, 4, 5, 2, 8, 6, 0, 7, 9, 0, 2, 6, 8, 0, 3, 7, 9, 0, 7, 1, 3, 9, 2, 4, 0, 5, 6, 0, 0, 1, 0, 3, 7, 2, 0, 4, 2, 8, 7, 0, 1, 9, 6, 0, 5
 numbersLength: dw 81
 currentScrollUp: db 0
 
@@ -80,7 +83,7 @@ scrollup:
     pop cx 
     pop ax 
     pop bp 
-    ret 2
+    ret 
 
 scrolldown: 
     push bp 
@@ -132,7 +135,7 @@ scrolldown:
     pop cx 
     pop ax 
     pop bp 
-    ret 2
+    ret 
 
 clrscr:
     push di
@@ -560,6 +563,49 @@ c9:
     mov si, 0
     ret
 
+printnum:
+    push bp 
+    mov  bp, sp 
+    push es 
+    push ax 
+    push bx 
+    push cx 
+    push dx 
+    push di 
+    mov  ax, 0xb800 
+    mov  es, ax             ; point es to video base 
+    mov  ax, [bp+4]         ; load number in ax 
+    mov  bx, 10             ; use base 10 for division 
+    mov  cx, 0              ; initialize count of digits 
+    nextdigit:    
+        mov  dx, 0              ; zero upper half of dividend 
+        div  bx                 ; divide by 10 
+        add  dl, 0x30           ; convert digit into ascii value 
+        push dx                 ; save ascii value on stack 
+        inc  cx                 ; increment count of values  
+        cmp  ax, 0              ; is the quotient zero 
+        jnz  nextdigit          ; if no divide it again 
+        mov  di, [bp+8]     ; x axis
+        shl di, 1
+        mov ax, 160  ; y axis
+        mul byte[bp+6]
+        add di, ax
+
+    nextpos:
+        pop dx
+        mov  dh, 0x07           ; use normal attribute 
+        mov [es:di], dx         ; print char on screen 
+        add  di, 2              ; move to next screen location 
+        loop nextpos            ; repeat for all digits on stack
+        pop  di 
+        pop  dx 
+        pop  cx 
+        pop  bx 
+        pop  ax 
+        pop  es 
+        pop  bp 
+        ret  6
+
 printBoard:
     push bp
     mov bp, sp
@@ -814,7 +860,21 @@ display:
     push cx
     mov cx, 3;y
     push cx
-    push mistake
+    push mistake1
+    call printString
+
+    mov cx, 15;x
+    push cx
+    mov cx, 3;y
+    push cx
+    push word [mistakes]
+    call printnum
+
+    mov cx, 16;x
+    push cx
+    mov cx, 3;y
+    push cx
+    push mistake2
     call printString
 
     mov cx, 35;x
@@ -932,7 +992,8 @@ int9hisr:
         push di 
         push bp 
         push ds 
-        push es 
+        push es
+         
         push cs 
         pop  ds                 ; point ds to our data segment 
 
@@ -947,7 +1008,7 @@ int9hisr:
         cmp al, 0x4D       
         je moveRight
 
-        jmp exitFromint9h
+        jmp int9hisrextended
 
         moveUp:
             cmp byte [cursorIndex], 9
@@ -999,7 +1060,112 @@ int9hisr:
               pop  cx 
               pop  bx 
               pop  ax 
-              jmp far [cs:oldisr]   
+              jmp far [cs:oldisr] 
+
+    int9hisrextended:
+        cmp al, 0x1f
+        jne skipscrollup
+        cmp byte[currentScrollUp], 20
+        je exitFromExtended
+        call scrollup
+        inc byte [currentScrollUp]
+        jmp exitFromExtended
+        skipscrollup:
+        cmp al, 0x11
+        jne skipscrolldown
+        cmp byte[currentScrollUp], 0
+        je exitFromExtended
+        call scrolldown
+        dec byte [currentScrollUp]
+        jmp exitFromExtended
+        skipscrolldown:
+        cmp al, 0x02
+        jb exitFromExtended ; AL is less than 0x02, not a digit 
+        cmp al, 0x0A 
+        ja exitFromExtended ; AL is greater than 0x0A, not a digit
+
+        jmp inputValue
+
+        exitFromExtended:
+              pop  es 
+              pop  ds 
+              pop  bp 
+              pop  di 
+              pop  si 
+              pop  dx 
+              pop  cx 
+              pop  bx 
+              pop  ax 
+              jmp far [cs:oldisr] 
+
+    inputValue:
+        mov bh, 0
+        mov bl, byte [cursorIndex]
+        sub bl, 1
+        cmp byte [numbers + bx], 0
+        jne exitFromExtended
+
+        cmp al, 0x02          
+        jne digit2
+        mov byte [numbers+bx], 1
+        jmp exitInputValue
+        digit2:
+        cmp al, 0x03          
+        jne digit3
+        mov byte [numbers+bx], 2
+        jmp exitInputValue
+        digit3:
+        cmp al, 0x04          
+        jne digit4
+        mov byte [numbers+bx], 3
+        jmp exitInputValue
+        digit4:
+        cmp al, 0x05          
+        jne digit5
+        mov byte [numbers+bx], 4
+        jmp exitInputValue
+        digit5:
+        cmp al, 0x06          
+        jne digit6
+        mov byte [numbers+bx], 5
+        jmp exitInputValue
+        digit6:
+        cmp al, 0x07          
+        jne digit7
+        mov byte [numbers+bx], 6
+        jmp exitInputValue
+        digit7:
+        cmp al, 0x08          
+        jne digit8
+        mov byte [numbers+bx], 7
+        jmp exitInputValue
+        digit8:
+        cmp al, 0x09          
+        jne digit9
+        mov byte [numbers+bx], 8
+        jmp exitInputValue
+        digit9:
+        cmp al, 0x0A          
+        jne exitInputValue
+        mov byte [numbers+bx], 9
+
+        exitInputValue:
+            mov ah, byte [solvedNumbers+bx]
+            cmp ah, byte [numbers+bx]
+            je continueExit
+            add byte [mistakes], 1
+            continueExit:
+                call display
+                pop  es 
+                pop  ds 
+                pop  bp 
+                pop  di 
+                pop  si 
+                pop  dx 
+                pop  cx 
+                pop  bx 
+                pop  ax 
+                jmp far [cs:oldisr] 
 
 game:
 
@@ -1017,26 +1183,10 @@ game:
     call displayStartScreen
 
     start:
-        mov ah, 0
-        int 0x16
-        cmp al, 0x73
-        jne skipscrollup
-        cmp byte[currentScrollUp], 20
-        je start
-        call scrollup
-        inc byte [currentScrollUp]
-        skipscrollup:
-        cmp al, 0x77
-        jne skipscrolldown
-        cmp byte[currentScrollUp], 0
-        je start
-        call scrolldown
-        dec byte [currentScrollUp]
-        skipscrolldown:
-        cmp al, 0x1B
-        je end
-    jmp start
-
+        cmp byte [mistakes], 3
+        jne start
+    call clrscr
+    
     end:
         mov ax, 4c00h
         int 21h
