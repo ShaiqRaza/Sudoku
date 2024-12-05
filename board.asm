@@ -605,7 +605,6 @@ printnum:
         pop  es 
         pop  bp 
         ret  6
-
 printBoard:
     push bp
     mov bp, sp
