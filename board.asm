@@ -947,7 +947,7 @@ int9hisr:
         cmp al, 0x4D       
         je moveRight
 
-        jmp exitFromint9h
+        jmp int9hisrextended
 
         moveUp:
             cmp byte [cursorIndex], 9
@@ -999,7 +999,111 @@ int9hisr:
               pop  cx 
               pop  bx 
               pop  ax 
-              jmp far [cs:oldisr]   
+              jmp far [cs:oldisr] 
+
+    int9hisrextended:
+        cmp al, 0x11
+        jne skipscrollup
+        cmp byte[currentScrollUp], 20
+        je exitFromExtended
+        call scrollup
+        inc byte [currentScrollUp]
+        skipscrollup:
+        cmp al, 0x1f
+        jne skipscrolldown
+        cmp byte[currentScrollUp], 0
+        je exitFromExtended
+        call scrolldown
+        dec byte [currentScrollUp]
+        skipscrolldown:
+        cmp al, 0x01
+        je exitFromExtended
+
+        jmp inputValue
+
+        exitFromExtended:
+            pop  es 
+            pop  ds 
+            pop  bp 
+            pop  di 
+            pop  si 
+            pop  dx 
+            pop  cx 
+            pop  bx 
+            pop  ax 
+            jmp far [cs:oldisr] 
+
+    inputValue:
+        mov bh, 0
+        mov bl, byte [cursorIndex]
+        sub bl, 1
+        cmp byte [numbers + bx], 0
+        jne exitFromExtended
+
+        cmp al, 0x02          
+        jne digit2
+        mov byte [numbers+bx], 1
+        call display
+        jmp exitInputValue
+        digit2:
+        cmp al, 0x03          
+        jne digit3
+        mov byte [numbers+bx], 2
+        call display
+        jmp exitInputValue
+        digit3:
+        cmp al, 0x04          
+        jne digit4
+        mov byte [numbers+bx], 3
+        call display
+        jmp exitInputValue
+        digit4:
+        cmp al, 0x05          
+        jne digit5
+        mov byte [numbers+bx], 4
+        call display
+        jmp exitInputValue
+        digit5:
+        cmp al, 0x06          
+        jne digit6
+        mov byte [numbers+bx], 5
+        call display
+        jmp exitInputValue
+        digit6:
+        cmp al, 0x07          
+        jne digit7
+        mov byte [numbers+bx], 6
+        call display
+        jmp exitInputValue
+        digit7:
+        cmp al, 0x08          
+        jne digit8
+        mov byte [numbers+bx], 7
+        call display
+        jmp exitInputValue
+        digit8:
+        cmp al, 0x09          
+        jne digit9
+        mov byte [numbers+bx], 8
+        call display
+        jmp exitInputValue
+        digit9:
+        cmp al, 0x0A          
+        jne exitInputValue
+        mov byte [numbers+bx], 9
+        call display
+
+        exitInputValue:
+            pop  es 
+            pop  ds 
+            pop  bp 
+            pop  di 
+            pop  si 
+            pop  dx 
+            pop  cx 
+            pop  bx 
+            pop  ax 
+            jmp far [cs:oldisr] 
 
 game:
 
@@ -1017,24 +1121,7 @@ game:
     call displayStartScreen
 
     start:
-        mov ah, 0
-        int 0x16
-        cmp al, 0x73
-        jne skipscrollup
-        cmp byte[currentScrollUp], 20
-        je start
-        call scrollup
-        inc byte [currentScrollUp]
-        skipscrollup:
-        cmp al, 0x77
-        jne skipscrolldown
-        cmp byte[currentScrollUp], 0
-        je start
-        call scrolldown
-        dec byte [currentScrollUp]
-        skipscrolldown:
-        cmp al, 0x1B
-        je end
+        
     jmp start
 
     end:
