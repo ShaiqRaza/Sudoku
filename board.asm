@@ -30,7 +30,7 @@ m6:db 'Are you ready for the challenge?',0
 m7:db 'Press any key to Start',0
 
 cursorIndex: db 1
-cursorPosition: dw 1328
+cursorPosition: dw 1168
 oldisr: dw 0, 0
 
 scrollup:     
@@ -605,6 +605,7 @@ printnum:
         pop  es 
         pop  bp 
         ret  6
+
 printBoard:
     push bp
     mov bp, sp
@@ -844,7 +845,7 @@ removecursor:
     mov ax, 0xb800
     mov es, ax
     mov bx, [cursorPosition]
-    mov word [es:bx], 0x6020
+    mov byte [es:bx+1], 0x60
 
     pop bx
     pop ax
@@ -859,7 +860,7 @@ printCursor:
     mov ax, 0xb800
     mov es, ax
     mov bx, [cursorPosition]
-    mov word[es:bx], 0xe05f
+    mov word[es:bx+1], 0x30
 
     pop bx
     pop ax
@@ -1025,44 +1026,44 @@ int9hisr:
         jmp int9hisrextended
 
         moveUp:
-            call removecursor
             cmp byte [cursorIndex], 9
             jna exitFromint9h
+            call removecursor
             sub word[cursorPosition], 160*4
             sub byte [cursorIndex], 9
             call printCursor
             jmp exitFromint9h
 
         moveDown:
-            call removecursor
             cmp byte [cursorIndex], 72
             ja exitFromint9h
+            call removecursor
             add word[cursorPosition], 160*4
             add byte [cursorIndex], 9
             call printCursor
             jmp exitFromint9h
         
         moveLeft:
-            call removecursor
             mov ah, 0
             mov al, byte [cursorIndex]
             mov dh, 9
             div dh  
             cmp ah, 1
             je exitFromint9h
+            call removecursor
             sub word[cursorPosition], 8
             sub byte[cursorIndex], 1
             call printCursor
             jmp exitFromint9h
 
         moveRight:
-            call removecursor
             mov ah, 0
             mov al, byte [cursorIndex]
             mov dh, 9
             div dh
             cmp ah, 0
             je exitFromint9h
+            call removecursor
             add word[cursorPosition], 8
             add byte [cursorIndex], 1
             call printCursor
