@@ -1009,6 +1009,7 @@ int9hisr:
         je moveRight
 
         jmp int9hisrextended
+        jmp int9hisrextended
 
         moveUp:
             cmp byte [cursorIndex], 9
