@@ -837,6 +837,21 @@ printWord:
 		pop bp
 		ret 8
 
+removecursor:
+    push es
+    push ax
+    push bx
+
+    mov ax, 0xb800
+    mov es, ax
+    mov bx, [cursorPosition]
+    mov word [es:bx], 0x6020
+
+    pop bx
+    pop ax
+    pop es
+    ret
+
 printCursor:
     push es
     push ax
@@ -1009,25 +1024,27 @@ int9hisr:
         je moveRight
 
         jmp int9hisrextended
-        jmp int9hisrextended
 
         moveUp:
+            call removecursor
             cmp byte [cursorIndex], 9
             jna exitFromint9h
             sub word[cursorPosition], 160*4
             sub byte [cursorIndex], 9
-            call display
+            call printCursor
             jmp exitFromint9h
 
         moveDown:
+            call removecursor
             cmp byte [cursorIndex], 72
             ja exitFromint9h
             add word[cursorPosition], 160*4
             add byte [cursorIndex], 9
-            call display
+            call printCursor
             jmp exitFromint9h
         
         moveLeft:
+            call removecursor
             mov ah, 0
             mov al, byte [cursorIndex]
             mov dh, 9
@@ -1036,10 +1053,11 @@ int9hisr:
             je exitFromint9h
             sub word[cursorPosition], 8
             sub byte[cursorIndex], 1
-            call display
+            call printCursor
             jmp exitFromint9h
 
         moveRight:
+            call removecursor
             mov ah, 0
             mov al, byte [cursorIndex]
             mov dh, 9
@@ -1048,7 +1066,7 @@ int9hisr:
             je exitFromint9h
             add word[cursorPosition], 8
             add byte [cursorIndex], 1
-            call display
+            call printCursor
             jmp exitFromint9h
 
     exitFromint9h:
