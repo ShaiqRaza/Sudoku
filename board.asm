@@ -31,6 +31,7 @@ easy: db 'EASY', 0
 medium: db 'MEDIUM', 0
 hard: db 'HARD', 0
 level: db 'Select Your Difficulty Level', 0
+levelFlag: db 1
 
 cursorIndex: db 1
 cursorPosition: dw 1168
@@ -1077,6 +1078,62 @@ displayStartScreen2:
     pop ax
     ret
 
+displayLevels:
+    push ax
+    push bx
+    push dx
+
+    mov ah, 0
+    mov bh, 0
+    mov dh, 0
+
+    cmp byte [levelFlag], 1
+    je setFor1
+    cmp byte [levelFlag], 2
+    je setFor2
+    cmp byte [levelFlag], 3
+    je setFor3
+
+    setFor1:
+        mov al, 0x04
+        mov bl, 0x0f
+        mov dl, 0x0f
+        jmp continuePrinting
+    setFor2:
+        mov al, 0x0f
+        mov bl, 0x04
+        mov dl, 0x0f
+        jmp continuePrinting
+    setFor3:
+        mov al, 0x0f
+        mov bl, 0x0f
+        mov dl, 0x04
+        jmp continuePrinting
+
+    continuePrinting:
+        push 37
+	    push 12
+	    push ax
+	    push easy
+        call printWord
+
+        push 36
+	    push 15
+	    push bx
+	    push medium
+        call printWord
+
+        push 37
+	    push 18
+	    push dx
+	    push hard
+        call printWord
+
+    pop dx
+    pop bx
+    pop ax
+    ret
+
 displayStartScreen:
     push ax
     call clrscr
@@ -1105,32 +1162,29 @@ displayStartScreen:
 	push level
     call printWord
 
-    push 37
-	push 12
-	push 0x04
-	push easy
-    call printWord
-
-    push 36
-	push 15
-	push 0x0f
-	push medium
-    call printWord
-
-    push 37
-	push 18
-	push 0x0f
-	push hard
-    call printWord
-
     loopForLevels:
+        call displayLevels
         mov ah, 0
         int 0x16
+        cmp al, 0x73
+        je pressedS
+        cmp al, 0x77
+        je pressedW
         cmp al, 0x0d
         jne loopForLevels
 
     pop ax
     ret
+    pressedS:
+        cmp byte [levelFlag], 3
+        je loopForLevels
+        add byte [levelFlag], 1
+        jmp loopForLevels
+    pressedW:
+        cmp byte [levelFlag], 1
+        je loopForLevels
+        sub byte [levelFlag], 1
+        jmp loopForLevels
 
 int9hisr:
 	    push ax                 ; push all regs  
