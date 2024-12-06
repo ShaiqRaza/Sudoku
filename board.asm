@@ -32,6 +32,8 @@ m7:db 'Press any key to Start',0
 cursorIndex: db 1
 cursorPosition: dw 1168
 oldisr: dw 0, 0
+notes: dw 0
+notesFlag: dw 0
 
 scrollup:     
     push bp 
@@ -845,12 +847,20 @@ removecursor:
     mov ax, 0xb800
     mov es, ax
     mov bx, [cursorPosition]
+    cmp byte [es:bx+1], 0x37
+    je notesatcursorposition
     mov byte [es:bx+1], 0x60
-
     pop bx
     pop ax
     pop es
     ret
+    
+    notesatcursorposition:
+        mov byte [es:bx+1], 0x67
+        pop bx
+        pop ax
+        pop es
+        ret
 
 printCursor:
     push es
@@ -867,10 +877,38 @@ printCursor:
     pop es
     ret
 
-display:
-    push cx
+removeNotes:
+    push ax
+    push bx
+    push es
+    mov ax, 0xb800
+    mov es, ax
+    mov bx, [cursorPosition]
 
-    call clrscr
+    sub bx, 160
+    mov word[es:bx], 0x6020
+    sub bx, 2
+    mov word[es:bx], 0x6020
+    add bx, 4
+    mov word[es:bx], 0x6020
+    add bx, 160
+    mov word[es:bx], 0x6020
+    sub bx, 4
+    mov word[es:bx], 0x6020
+    add bx, 160
+    mov word[es:bx], 0x6020
+    add bx, 2
+    mov word[es:bx], 0x6020
+    add bx, 2
+    mov word[es:bx], 0x6020
+
+    pop es
+    pop bx
+    pop ax
+    ret
+
+displayStats:
+    push cx
     mov cx, 5;x
     push cx
     mov cx, 3;y
@@ -905,6 +943,15 @@ display:
     push cx
     push timer
     call printString
+
+    pop cx
+    ret
+
+display:
+    push cx
+
+    call clrscr
+    call displayStats
 
     mov cx, 5 ;y-axis
     push cx
@@ -983,7 +1030,6 @@ displayStartScreen:
 	push m7
 	call printWord
 	
-	
 	push 18
 	push 21
 	push 0x0F
@@ -1014,6 +1060,12 @@ int9hisr:
 
 	    in al, 0x60
 
+        cmp al, 0x2a
+        je shiftPress
+
+        cmp al, 0xaa
+        je shiftRelease
+
         cmp al, 0x4B       
         je moveLeft
         cmp al, 0x48       
@@ -1024,6 +1076,13 @@ int9hisr:
         je moveRight
 
         jmp int9hisrextended
+
+        shiftPress:
+            mov byte[notesFlag], 1
+            jmp int9hisrextended
+        shiftRelease:
+            mov byte[notesFlag], 0
+            jmp int9hisrextended
 
         moveUp:
             cmp byte [cursorIndex], 9
@@ -1118,55 +1177,89 @@ int9hisr:
               jmp far [cs:oldisr] 
 
     inputValue:
+        cmp byte [notesFlag], 1
+        jne continueValue
+        jmp inputNotes
+
+        continueValue:
         mov bh, 0
         mov bl, byte [cursorIndex]
         sub bl, 1
         cmp byte [numbers + bx], 0
         jne exitFromExtended
 
+        mov dx, 0xb800
+        mov es, dx
+
         cmp al, 0x02          
         jne digit2
-        mov byte [numbers+bx], 1
+        call removeNotes
+        mov bx, [cursorPosition]
+        mov word [es:bx], 0x3031
         jmp exitInputValue
         digit2:
         cmp al, 0x03          
         jne digit3
+        call removeNotes
         mov byte [numbers+bx], 2
+        mov bx, [cursorPosition]
+        mov word [es:bx], 0x3032
         jmp exitInputValue
         digit3:
         cmp al, 0x04          
         jne digit4
+        call removeNotes
         mov byte [numbers+bx], 3
+        mov bx, [cursorPosition]
+        mov word [es:bx], 0x3033
         jmp exitInputValue
         digit4:
         cmp al, 0x05          
         jne digit5
+        call removeNotes
         mov byte [numbers+bx], 4
+        mov bx, [cursorPosition]
+        mov word [es:bx], 0x3034
         jmp exitInputValue
         digit5:
         cmp al, 0x06          
         jne digit6
+        call removeNotes
         mov byte [numbers+bx], 5
+        mov bx, [cursorPosition]
+        mov word [es:bx], 0x3035
         jmp exitInputValue
         digit6:
         cmp al, 0x07          
         jne digit7
+        call removeNotes
         mov byte [numbers+bx], 6
+        mov bx, [cursorPosition]
+        mov word [es:bx], 0x3036
         jmp exitInputValue
         digit7:
         cmp al, 0x08          
         jne digit8
+        call removeNotes
         mov byte [numbers+bx], 7
+        mov bx, [cursorPosition]
+        mov word [es:bx], 0x3037
         jmp exitInputValue
         digit8:
         cmp al, 0x09          
         jne digit9
+        call removeNotes
         mov byte [numbers+bx], 8
+        mov bx, [cursorPosition]
+        mov word [es:bx], 0x3038
         jmp exitInputValue
         digit9:
         cmp al, 0x0A          
         jne exitInputValue
+        call removeNotes
         mov byte [numbers+bx], 9
+        mov bx, [cursorPosition]
+        mov word [es:bx], 0x3039
 
         exitInputValue:
             mov ah, byte [solvedNumbers+bx]
@@ -1174,7 +1267,91 @@ int9hisr:
             je continueExit
             add byte [mistakes], 1
             continueExit:
-                call display
+                call displayStats
+                pop  es 
+                pop  ds 
+                pop  bp 
+                pop  di 
+                pop  si 
+                pop  dx 
+                pop  cx 
+                pop  bx 
+                pop  ax 
+                jmp far [cs:oldisr] 
+
+    inputNotes:
+        mov bh, 0
+        mov bl, byte [cursorIndex]
+        sub bl, 1
+        cmp byte [numbers + bx], 0
+        jne exitInputValue
+
+        mov dx, 0xb800
+        mov es, dx
+
+        cmp al, 0x02          
+        jne d2
+        mov bx, word [cursorPosition]
+        sub bx, 162
+        mov word [es:bx], 0x6731
+        jmp exitInputNotes
+        d2:
+        cmp al, 0x03          
+        jne d3
+        mov bx, word [cursorPosition]
+        sub bx, 160
+        mov word [es:bx], 0x6732
+        jmp exitInputNotes
+        d3:
+        cmp al, 0x04          
+        jne d4
+        mov bx, word [cursorPosition]
+        sub bx, 158
+        mov word [es:bx], 0x6733
+        jmp exitInputNotes
+        d4:
+        cmp al, 0x05          
+        jne d5
+        mov bx, word [cursorPosition]
+        sub bx, 2
+        mov word [es:bx], 0x6734
+        jmp exitInputNotes
+        d5:
+        cmp al, 0x06          
+        jne d6
+        mov bx, word [cursorPosition]
+        mov word [es:bx], 0x3735
+        jmp exitInputNotes
+        d6:
+        cmp al, 0x07          
+        jne d7
+        mov bx, word [cursorPosition]
+        add bx, 2
+        mov word [es:bx], 0x6736
+        jmp exitInputNotes
+        d7:
+        cmp al, 0x08          
+        jne d8
+        mov bx, word [cursorPosition]
+        add bx, 158
+        mov word [es:bx], 0x6737
+        jmp exitInputNotes
+        d8:
+        cmp al, 0x09          
+        jne d9
+        mov bx, word [cursorPosition]
+        add bx, 160
+        mov word [es:bx], 0x6738
+        jmp exitInputNotes
+        d9:
+        cmp al, 0x0A          
+        jne exitInputNotes
+        mov bx, word [cursorPosition]
+        add bx, 162
+        mov word [es:bx], 0x6739
+
+        exitInputNotes:
+                call displayStats
                 pop  es 
                 pop  ds 
                 pop  bp 
@@ -1188,6 +1365,8 @@ int9hisr:
 
 game:
 
+    call displayStartScreen
+
     xor ax, ax
     mov es, ax
     mov ax, [es:9*4]
@@ -1198,8 +1377,6 @@ game:
     mov word [es:9*4], int9hisr
     mov [es:9*4+2], cs
     sti
-
-    call displayStartScreen
 
     start:
         cmp byte [mistakes], 3
