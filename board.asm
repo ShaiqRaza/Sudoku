@@ -10,7 +10,10 @@ timer: db '00:00', 0
 score: db 'Score: 1000', 0
 
 solvedNumbers: db 6, 7, 2, 1, 9, 5, 3, 4, 8, 5, 3, 4, 6, 7, 8, 9, 1, 2, 1, 9, 8, 3, 4, 2, 5, 6, 7, 8, 5, 9, 7, 6, 1, 4, 2, 3, 3, 4, 5, 2, 8, 6, 1, 7, 9, 4, 2, 6, 8, 5, 3, 7, 9, 1, 7, 1, 3, 9, 2, 4, 8, 5, 6, 9, 6, 1, 5, 3, 7, 2, 8, 4, 2, 8, 7, 4, 1, 9, 6, 3, 5
-numbers: db 6, 7, 2, 1, 0, 5, 3, 4, 8, 5, 3, 0, 6, 7, 8, 9, 1, 2, 1, 0, 0, 3, 4, 0, 5, 6, 0, 8, 5, 9, 7, 6, 1, 4, 0, 3, 3, 4, 5, 2, 8, 6, 0, 7, 9, 0, 2, 6, 8, 0, 3, 7, 9, 0, 7, 1, 3, 9, 2, 4, 0, 5, 6, 0, 0, 1, 0, 3, 7, 2, 0, 4, 2, 8, 7, 0, 1, 9, 6, 0, 5
+numbers: times 81 db 0
+easyNumbers: db 6, 7, 2, 1, 0, 5, 3, 4, 8, 5, 3, 0, 6, 7, 8, 9, 1, 2, 1, 0, 0, 3, 4, 0, 5, 6, 0, 8, 5, 9, 7, 6, 1, 4, 0, 3, 3, 4, 5, 2, 8, 6, 0, 7, 9, 0, 2, 6, 8, 0, 3, 7, 9, 0, 7, 1, 3, 9, 2, 4, 0, 5, 6, 0, 0, 1, 0, 3, 7, 2, 0, 4, 2, 8, 7, 0, 1, 9, 6, 0, 5
+mediumNumbers: db 6, 0, 2, 1, 0, 5, 3, 4, 0, 0, 3, 0, 6, 7, 0, 9, 1, 0, 1, 0, 8, 3, 4, 0, 5, 6, 0, 8, 5, 9, 7, 6, 1, 0, 0, 3, 3, 0, 5, 0, 8, 6, 0, 7, 9, 0, 2, 6, 0, 0, 3, 7, 9, 0, 7, 1, 0, 9, 2, 4, 0, 5, 6, 0, 0, 1, 0, 3, 7, 2, 0, 4, 2, 0, 7, 0, 1, 9, 6, 0, 5
+hardNumbers: db 6, 0, 0, 1, 0, 5, 0, 4, 0, 0, 3, 0, 6, 0, 0, 9, 1, 0, 1, 0, 0, 0, 4, 0, 5, 6, 0, 8, 5, 0, 7, 0, 1, 0, 0, 3, 3, 0, 5, 0, 8, 6, 0, 7, 9, 0, 2, 6, 0, 0, 3, 0, 9, 0, 7, 1, 0, 0, 0, 4, 0, 5, 6, 0, 0, 1, 0, 3, 7, 2, 0, 4, 2, 0, 7, 0, 1, 0, 6, 0, 5
 numbersLength: dw 81
 currentScrollUp: db 0
 
@@ -48,6 +51,50 @@ oldTimer: dw 0, 0
 oldPosDI: dw 0
 oldPosSI: dw 0
 
+copytoNumbers:
+    push bx
+    push dx
+
+    cmp byte[levelFlag], 1
+    je fromEasy
+    cmp byte[levelFlag], 2
+    je fromMedium
+    jmp fromHard
+
+    fromEasy:
+        mov bx, 0
+        easyLoop:
+            mov dl, byte [easyNumbers+bx]
+            mov byte [numbers+bx], dl
+            add bx, 1
+            cmp bx, 81
+            jne easyLoop
+        pop dx
+        pop bx
+        ret
+
+    fromMedium:
+        medLoop:
+            mov dl, byte [mediumNumbers+bx]
+            mov byte [numbers+bx], dl
+            add bx, 1
+            cmp bx, 81
+            jne medLoop
+        pop dx
+        pop bx
+        ret
+
+    fromHard:
+        hardLoop:
+            mov dl, byte [hardNumbers+bx]
+            mov byte [numbers+bx], dl
+            add bx, 1
+            cmp bx, 81
+            jne hardLoop
+        pop dx
+        pop bx
+        ret
+   
 copytoUndo:
     push bx
     push dx
@@ -1073,6 +1120,7 @@ displayStartScreen2:
     mov ah, 0
     int 0x16
 
+    call copytoNumbers
     call display
 
     pop ax
@@ -1615,7 +1663,6 @@ Animation:
 	        pop di
 	        pop ax
 	        jmp far [cs:oldTimer]
-
 
 game:
 
