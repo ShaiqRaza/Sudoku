@@ -35,6 +35,25 @@ oldisr: dw 0, 0
 notes: dw 0
 notesFlag: dw 0
 
+u1: times 81 db 0
+
+undoFlag: db 0
+
+copytoUndo:
+    push bx
+    push dx
+    mov byte [undoFlag], 1
+    mov bx, 0
+    copyingLoop:
+        mov dl, byte [numbers+bx]
+        mov byte [u1+bx], dl
+        add bx, 1
+        cmp bx, 81
+        jne copyingLoop
+    pop dx
+    pop bx
+    ret
+
 scrollup:     
     push bp 
     mov  bp, sp 
@@ -1062,20 +1081,27 @@ int9hisr:
 
         cmp al, 0x2a
         je shiftPress
-
         cmp al, 0xaa
         je shiftRelease
+        cmp al, 0x16
+        je undo
 
-        cmp al, 0x4B       
-        je moveLeft
-        cmp al, 0x48       
-        je moveUp
-        cmp al, 0x50       
-        je moveDown
-        cmp al, 0x4D       
-        je moveRight
+        jmp arrowKeys
 
-        jmp int9hisrextended
+        undo:
+            cmp byte [undoFlag], 0
+            je exitUndo
+            mov byte [undoFlag], 0
+            mov bx, 0
+            copyLoop:
+                mov dl, byte [u1+bx]
+                mov byte [numbers+bx], dl
+                add bx, 1
+                cmp bx, 81
+                jne copyLoop
+            call display
+            exitUndo:
+                jmp int9hisrextended
 
         shiftPress:
             mov byte[notesFlag], 1
@@ -1083,6 +1109,19 @@ int9hisr:
         shiftRelease:
             mov byte[notesFlag], 0
             jmp int9hisrextended
+
+
+        arrowKeys:
+            cmp al, 0x4B       
+            je moveLeft
+            cmp al, 0x48       
+            je moveUp
+            cmp al, 0x50       
+            je moveDown
+            cmp al, 0x4D       
+            je moveRight
+
+        jmp int9hisrextended
 
         moveUp:
             cmp byte [cursorIndex], 9
@@ -1194,6 +1233,8 @@ int9hisr:
         cmp al, 0x02          
         jne digit2
         call removeNotes
+        call copytoUndo
+        mov byte [numbers+bx], 1
         mov bx, [cursorPosition]
         mov word [es:bx], 0x3031
         jmp exitInputValue
@@ -1201,6 +1242,7 @@ int9hisr:
         cmp al, 0x03          
         jne digit3
         call removeNotes
+        call copytoUndo
         mov byte [numbers+bx], 2
         mov bx, [cursorPosition]
         mov word [es:bx], 0x3032
@@ -1209,6 +1251,7 @@ int9hisr:
         cmp al, 0x04          
         jne digit4
         call removeNotes
+        call copytoUndo
         mov byte [numbers+bx], 3
         mov bx, [cursorPosition]
         mov word [es:bx], 0x3033
@@ -1217,6 +1260,7 @@ int9hisr:
         cmp al, 0x05          
         jne digit5
         call removeNotes
+        call copytoUndo
         mov byte [numbers+bx], 4
         mov bx, [cursorPosition]
         mov word [es:bx], 0x3034
@@ -1225,6 +1269,7 @@ int9hisr:
         cmp al, 0x06          
         jne digit6
         call removeNotes
+        call copytoUndo
         mov byte [numbers+bx], 5
         mov bx, [cursorPosition]
         mov word [es:bx], 0x3035
@@ -1233,6 +1278,7 @@ int9hisr:
         cmp al, 0x07          
         jne digit7
         call removeNotes
+        call copytoUndo
         mov byte [numbers+bx], 6
         mov bx, [cursorPosition]
         mov word [es:bx], 0x3036
@@ -1241,6 +1287,7 @@ int9hisr:
         cmp al, 0x08          
         jne digit8
         call removeNotes
+        call copytoUndo
         mov byte [numbers+bx], 7
         mov bx, [cursorPosition]
         mov word [es:bx], 0x3037
@@ -1249,6 +1296,7 @@ int9hisr:
         cmp al, 0x09          
         jne digit9
         call removeNotes
+        call copytoUndo
         mov byte [numbers+bx], 8
         mov bx, [cursorPosition]
         mov word [es:bx], 0x3038
@@ -1257,6 +1305,7 @@ int9hisr:
         cmp al, 0x0A          
         jne exitInputValue
         call removeNotes
+        call copytoUndo
         mov byte [numbers+bx], 9
         mov bx, [cursorPosition]
         mov word [es:bx], 0x3039
