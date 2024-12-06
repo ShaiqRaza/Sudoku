@@ -14,20 +14,23 @@ numbers: db 6, 7, 2, 1, 0, 5, 3, 4, 8, 5, 3, 0, 6, 7, 8, 9, 1, 2, 1, 0, 0, 3, 4,
 numbersLength: dw 81
 currentScrollUp: db 0
 
-how1: db 'Scroll up: s',0
-how2: db 'Scroll down: w',0
-how3: db 'First Number: row',0
-how4: db 'Second Number: column',0
-how5: db 'Third Number: value',0
-
 line:db '===========================================',0
 m1:db 'Welcome to Sudoku!',0
 m2:db 'Get ready to solve the puzzle!',0
 m3:db  'For better experience go through the rules:',0
 m4:db   '1. Fill the grid as every row, column and 3x3 box contains the digits 1-9.',0
 m5:db '2. No number can repeat within any row, column or 3x3 box.',0
-m6:db 'Are you ready for the challenge?',0
-m7:db 'Press any key to Start',0
+m6:db '3. s for scrollup and w for scrolldowm.',0
+m7:db '4, u for undo.',0
+m8:db '5. Left shift + digit for notes.',0
+m9:db '6. Arrow keys for cursor movement.',0
+m10:db 'Are you ready for the challenge?',0
+m11:db 'Press any key to Start',0
+
+easy: db 'EASY', 0
+medium: db 'MEDIUM', 0
+hard: db 'HARD', 0
+level: db 'Select Your Difficulty Level', 0
 
 cursorIndex: db 1
 cursorPosition: dw 1168
@@ -38,6 +41,11 @@ notesFlag: dw 0
 u1: times 81 db 0
 
 undoFlag: db 0
+
+isCross: db 0
+oldTimer: dw 0, 0
+oldPosDI: dw 0
+oldPosSI: dw 0
 
 copytoUndo:
     push bx
@@ -991,6 +999,84 @@ display:
     pop cx
     ret
 
+displayStartScreen2:
+    push ax
+    call clrscr
+
+    push 5
+	push 4
+	push 0x0b
+	push m3
+    call printWord
+
+    push 2
+	push 6
+	push 0x0A
+	push m4
+    call printWord
+
+    push 2
+	push 7
+	push 0x0A
+	push m5
+    call printWord
+
+    push 2
+	push 8
+	push 0x0A
+	push m6
+    call printWord
+
+    push 2
+	push 9
+	push 0x0A
+	push m7
+    call printWord
+
+    push 2
+	push 10
+	push 0x0A
+	push m8
+    call printWord
+
+    push 2
+	push 11
+	push 0x0A
+	push m9
+    call printWord
+
+    push 23
+	push 16
+	push 0x0c
+	push m10
+    call printWord
+
+    push 18
+	push 19
+	push 0x0F
+	push line
+	call printWord
+	
+	push 28
+	push 20
+	push 0x8d
+	push m11
+	call printWord
+	
+	push 18
+	push 21
+	push 0x0F
+	push line
+	call printWord
+
+    mov ah, 0
+    int 0x16
+
+    call display
+
+    pop ax
+    ret
+
 displayStartScreen:
     push ax
     call clrscr
@@ -1013,52 +1099,35 @@ displayStartScreen:
 	push line
     call printWord
 
-    push 5
-	push 8
-	push 0x0b
-	push m3
+    push 25
+	push 9
+	push 0x06
+	push level
     call printWord
 
-    push 2
-	push 10
-	push 0x0A
-	push m4
+    push 37
+	push 12
+	push 0x04
+	push easy
     call printWord
 
-    push 2
-	push 11
-	push 0x0A
-	push m5
+    push 36
+	push 15
+	push 0x0f
+	push medium
     call printWord
 
-    push 23
-	push 16
-	push 0x0c
-	push m6
-    call printWord
-
-    push 18
-	push 19
-	push 0x0F
-	push line
-	call printWord
-	
-	push 28
-	push 20
-	push 0x8d
-	push m7
-	call printWord
-	
+    push 37
 	push 18
-	push 21
-	push 0x0F
-	push line
-	call printWord
+	push 0x0f
+	push hard
+    call printWord
 
-    mov ah, 0
-    int 0x16
-
-    call display
+    loopForLevels:
+        mov ah, 0
+        int 0x16
+        cmp al, 0x0d
+        jne loopForLevels
 
     pop ax
     ret
@@ -1412,9 +1481,92 @@ int9hisr:
                 pop  ax 
                 jmp far [cs:oldisr] 
 
+Timer:
+	push ax
+	push es
+
+	xor ax, ax
+	mov es, ax
+
+	cli
+	mov ax,[es: 8*4]
+	mov [oldTimer],ax
+	mov ax,[es: 8*4+2]
+	mov [oldTimer+2],ax
+
+	mov word[es:8*4],Animation
+	mov word[es:8*4+2],cs
+	sti
+
+	aniimation:
+	cmp byte[isCross],25
+	jl aniimation
+
+	cli
+
+	mov al,0x20
+	out 0x20,al
+
+	mov ax,[oldTimer]
+	mov [es:8*4],ax
+	mov ax, [oldTimer+2]
+	mov [es:8 * 4 + 2], ax
+	sti
+
+	pop es
+	pop ax
+	ret
+
+Animation:
+	push ax
+	push di
+	push si
+	push es
+
+	mov ax, 0xb800
+	mov es, ax
+
+
+	cmp byte[isCross], 0
+	jne startanii
+
+
+	mov di, 0
+	mov [oldPosDI], di
+	mov si, 158
+	mov [oldPosSI], si
+
+	cmp byte[isCross],24
+	jge exitfromTimer
+
+	startanii:
+		mov ax, 0x7720
+
+		mov di, [oldPosDI]
+		mov si, [oldPosSI]
+
+		mov [es: di],ax
+		mov [es: si],ax
+
+		add di,166
+		add si,154
+
+		mov [oldPosDI], di
+		mov [oldPosSI], si
+
+		inc byte[isCross]
+        exitfromTimer:
+	        pop es
+	        pop si
+	        pop di
+	        pop ax
+	        jmp far [cs:oldTimer]
+
+
 game:
 
     call displayStartScreen
+    call displayStartScreen2
 
     xor ax, ax
     mov es, ax
@@ -1430,6 +1582,8 @@ game:
     start:
         cmp byte [mistakes], 3
         jne start
+    call clrscr
+    call Timer
     call clrscr
     
     end:
